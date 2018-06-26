@@ -19,13 +19,26 @@ router.post('/screenshot', function (req, res) {
     }).then(function (status) {
         console.log(status);
 
+
+
         _page.render('./output/stack.png');
 
-        res.status(200).send({ "saved": "successfully" });
+        fs = require('fs')
+        fs.readFile('./output/stack.png', 'utf8', function (err, data) {
+            if (err) {
+
+                res.status(500).send(err);
+                return console.log(err);
+            }
+            res.setHeader('content-type', 'image/png');
+            res.status(200).send(data);
+        });
+
+
         _page.close();
         _ph.exit();
     }).catch(function (e) {
-        es.status(500).send(e);
+        res.status(500).send(e);
     });
 
 
