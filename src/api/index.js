@@ -18,13 +18,14 @@ router.post('/screenshot', function (req, res) {
         return _page.open('https://stackoverflow.com/');
     }).then(function (status) {
         console.log(status);
-        return _page.property('content');
-    }).then(function (content) {
-        res.status(200).send(content);
+
+        _page.render('./output/stack.png');
+
+        res.status(200).send({ "saved": "successfully" });
         _page.close();
         _ph.exit();
     }).catch(function (e) {
-        console.log(e);
+        es.status(500).send(e);
     });
 
 
