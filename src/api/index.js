@@ -5,7 +5,7 @@ var router = express.Router();
 router.post('/screenshot', function (req, res) {
 
 
-
+    console.log("render image ", req.body);
 
     var phantom = require("phantom");
     var _ph, _page, _outObj;
@@ -16,43 +16,89 @@ router.post('/screenshot', function (req, res) {
         return _ph.createPage();
     }).then(function (page) {
         _page = page;
-        page.property('viewportSize', { width: 800, height: 600 });
+        var viewportSize = req.body.viewportSize || { width: 800, height: 600 };
+        zoom = req.body.zoom || 2;
+        page.property('viewportSize', viewportSize);
         page.property('zoomFactor', zoom);
-        var rect = {
+
+
+
+        var url = req.body.url || 'https://stackoverflow.com/';
+
+        console.log("open ", url);
+        return _page.open(url);
+    }).then(function (status) {
+        console.log(status);
+
+        var rect = req.body.rect || {
             top: 0,
             left: 0,
             width: 800,
             height: 600
         };
-        var clipRect = {
-            top: rect.top * zoom,
-            left: rect.left * zoom,
-            width: rect.width * zoom,
-            height: rect.height * zoom
-        };
-        page.property('clipRect', clipRect);
-        return _page.open('https://stackoverflow.com/');
-    }).then(function (status) {
-        console.log(status);
 
-
-
-        _page.render('./output/stack.png');
-
-        fs = require('fs')
-
-        var s = fs.createReadStream('./output/stack.png');
-        s.on('open', function () {
-            res.set('Content-Type', 'image/png');
-            s.pipe(res);
+        var rectanglePromise = new Promise(function (resolve, reject) {
+            resolve(rect);
         });
-        s.on('error', function (err) {
-            res.status(500).send(err);
-        });
+        if (req.body.querySelector) {
 
-        _page.close();
-        _ph.exit();
+
+            rectanglePromise = _page.evaluate(function (querySelector) {
+                var element;
+                element = document.querySelector(querySelector);
+                return element.getBoundingClientRect();
+            }, req.body.querySelector);
+
+            console.log("apply query selector", rectanglePromise);
+        }
+
+        rectanglePromise.then(function (rectangle) {
+            var clipRect = {
+                top: rectangle.top * zoom,
+                left: rectangle.left * zoom,
+                width: rectangle.width * zoom,
+                height: rectangle.height * zoom
+            };
+            console.log("crop image ", clipRect);
+            _page.property('clipRect', clipRect);
+        }).then(function () {
+
+
+
+
+            var tempfile = require('tempfile');
+
+            var filename = tempfile('.png');
+            console.log("use", filename);
+
+            var render = _page.render(filename);
+
+            render.then(function () {
+
+                fs = require('fs')
+
+                var s = fs.createReadStream(filename);
+                s.on('open', function () {
+                    res.set('Content-Type', 'image/png');
+                    s.pipe(res);
+                });
+                s.on('error', function (err) {
+                    res.status(500).send(err);
+                });
+
+                _page.close();
+                _ph.exit();
+            }).catch(function (e) {
+                res.status(500).send(e);
+            });
+
+            return filename;
+        }).catch(function (e) {
+            console.log(e);
+            res.status(500).send(e);
+        });
     }).catch(function (e) {
+        console.log(e);
         res.status(500).send(e);
     });
 
