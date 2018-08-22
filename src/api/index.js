@@ -1,13 +1,13 @@
 var express = require('express');
 var router = express.Router();
-
+var phantom = require("phantom");
 
 router.post('/screenshot', function (req, res) {
 
 
     console.log("render image ", req.body);
 
-    var phantom = require("phantom");
+
     var _ph, _page, _outObj;
     var zoom = 2;
 
@@ -86,8 +86,10 @@ router.post('/screenshot', function (req, res) {
                     res.status(500).send(err);
                 });
 
-                _page.close();
-                _ph.exit();
+                _page.close().then(function () {
+                    _ph.exit();
+                });
+
             }).catch(function (e) {
                 res.status(500).send(e);
             });
